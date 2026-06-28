@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+"""Tolga Yilmaz, Oliver Stemm, Tim Klinger; HRW.
+
 Stationary temperature distribution in a room via finite differences.
 
-Stage 2: constant epsilon, with insulated (Neumann) walls.
 Projektaufgabe 1 - Wissenschaftliche Simulation (SoSe 2026)
 """
 
@@ -78,31 +79,33 @@ def solve():
             # opposite inner neighbour is counted twice
             on_boundary = (i == 0 or i == Nx - 1 or j == 0 or j == Ny - 1)
             if on_boundary:
-                A[k, k] = -4.0
+                A[k, k] = 4.0
                 if i == 0:
-                    A[k, idx(i + 1, j)] = 2.0
+                    A[k, idx(i + 1, j)] = -2.0
                 elif i == Nx - 1:
-                    A[k, idx(i - 1, j)] = 2.0
+                    A[k, idx(i - 1, j)] = -2.0
                 else:
-                    A[k, idx(i + 1, j)] = 1.0
-                    A[k, idx(i - 1, j)] = 1.0
+                    A[k, idx(i + 1, j)] = -1.0
+                    A[k, idx(i - 1, j)] = -1.0
                 if j == 0:
-                    A[k, idx(i, j + 1)] = 2.0
+                    A[k, idx(i, j + 1)] = -2.0
                 elif j == Ny - 1:
-                    A[k, idx(i, j - 1)] = 2.0
+                    A[k, idx(i, j - 1)] = -2.0
                 else:
-                    A[k, idx(i, j + 1)] = 1.0
-                    A[k, idx(i, j - 1)] = 1.0
+                    A[k, idx(i, j + 1)] = -1.0
+                    A[k, idx(i, j - 1)] = -1.0
                 continue
 
             # interior points: 5-point Laplace stencil
-            A[k, k] = -4.0
-            A[k, idx(i + 1, j)] = 1.0
-            A[k, idx(i - 1, j)] = 1.0
-            A[k, idx(i, j + 1)] = 1.0
-            A[k, idx(i, j - 1)] = 1.0
+            A[k, k] = 4.0
+            A[k, idx(i + 1, j)] = -1.0
+            A[k, idx(i - 1, j)] = -1.0
+            A[k, idx(i, j + 1)] = -1.0
+            A[k, idx(i, j - 1)] = -1.0
 
+    # convert from lil (fast to fill) to CSR (fast to solve), then solve A u = b
     u = spla.spsolve(A.tocsr(), b)
+    # fold the flat vector (k = j*Nx + i) back onto the 2D grid
     return u.reshape(Ny, Nx)
 
 

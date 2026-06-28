@@ -83,11 +83,11 @@ def solve():
                 continue
 
             # interior points: 5-point Laplace stencil
-            A[k, k] = -4.0
-            A[k, idx(i + 1, j)] = 1.0
-            A[k, idx(i - 1, j)] = 1.0
-            A[k, idx(i, j + 1)] = 1.0
-            A[k, idx(i, j - 1)] = 1.0
+            A[k, k] = 4.0
+            A[k, idx(i + 1, j)] = -1.0
+            A[k, idx(i - 1, j)] = -1.0
+            A[k, idx(i, j + 1)] = -1.0
+            A[k, idx(i, j - 1)] = -1.0
 
     u = spla.spsolve(A.tocsr(), b)
     return u.reshape(Ny, Nx)
