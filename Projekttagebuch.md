@@ -43,4 +43,5 @@ Aufgabenstellung gemeinsam durchgelesen und den Raum mit seinen Randbedingungen 
 **Aufgabenverteilung bis Treffen 4:**
 - Tim: variables Epsilon und harmonischen Mittelwert implementieren (Stufe 3)
 - Oliver: is_concrete-Funktion schreiben und Materialparameter prüfen
-- Tolga: alle drei Stufen in raumtemperatur.py zusammenführen und finalen Plot gestalten
+- Tolga: alle drei Stufen in raumtemperatur.py zusammenführen und finalen Plot gestalten 
+
