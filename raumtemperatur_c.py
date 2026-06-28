@@ -2,11 +2,8 @@
 """
 Stationary temperature distribution in a room via finite differences.
 
+Stage 3: variable epsilon (concrete wall) - final solution.
 Projektaufgabe 1 - Wissenschaftliche Simulation (SoSe 2026)
-
-The temperature u(x, y) solves  -eps(x, y) * (u_xx + u_yy) = 0  on the
-room [0, Lx] x [0, Ly] with a heater (Dirichlet), an open door (Dirichlet)
-and insulated walls (Neumann). The concrete wall uses a smaller epsilon.
 """
 
 import numpy as np
@@ -66,18 +63,13 @@ def harmonic(a, b):
     return 2.0 * a * b / (a + b)
 
 
-def solve(use_neumann=True, use_var_eps=True):
+def solve():
     """
     Assemble and solve the finite-difference system A u = b.
 
-    Parameters
-    ----------
-    use_neumann : bool
-        If True, insulated walls are modelled by Neumann conditions
-        (u_n = 0). Otherwise the outer boundary is fixed to T_outside.
-    use_var_eps : bool
-        If True, the concrete wall uses its own epsilon. Otherwise
-        epsilon is constant (air) everywhere.
+    Heater and door are Dirichlet, the remaining walls are insulated
+    (Neumann, u_n = 0). The concrete wall uses a smaller epsilon, coupled
+    to its neighbours by the harmonic mean.
 
     Returns
     -------
@@ -102,11 +94,10 @@ def solve(use_neumann=True, use_var_eps=True):
                 b[k] = T_outside
                 continue
 
-            on_boundary = (i == 0 or i == Nx - 1 or j == 0 or j == Ny - 1)
-
             # Neumann boundary: insulated wall via ghost points, the
             # opposite inner neighbour is counted twice
-            if on_boundary and use_neumann:
+            on_boundary = (i == 0 or i == Nx - 1 or j == 0 or j == Ny - 1)
+            if on_boundary:
                 A[k, k] = -4.0
                 if i == 0:
                     A[k, idx(i + 1, j)] = 2.0
@@ -124,30 +115,17 @@ def solve(use_neumann=True, use_var_eps=True):
                     A[k, idx(i, j - 1)] = 1.0
                 continue
 
-            # stage 1 without Neumann: fix the remaining boundary to T_outside
-            if on_boundary and not use_neumann:
-                A[k, k] = 1.0
-                b[k] = T_outside
-                continue
-
-            # interior points: 5-point Laplace stencil
-            if not use_var_eps:
-                A[k, k] = -4.0
-                A[k, idx(i + 1, j)] = 1.0
-                A[k, idx(i - 1, j)] = 1.0
-                A[k, idx(i, j + 1)] = 1.0
-                A[k, idx(i, j - 1)] = 1.0
-            else:
-                e0 = eps(x, y)
-                e_e = harmonic(e0, eps(xs[i + 1], y))
-                e_w = harmonic(e0, eps(xs[i - 1], y))
-                e_n = harmonic(e0, eps(x, ys[j + 1]))
-                e_s = harmonic(e0, eps(x, ys[j - 1]))
-                A[k, idx(i + 1, j)] = e_e
-                A[k, idx(i - 1, j)] = e_w
-                A[k, idx(i, j + 1)] = e_n
-                A[k, idx(i, j - 1)] = e_s
-                A[k, k] = -(e_e + e_w + e_n + e_s)
+            # interior points: 5-point stencil with harmonic eps coupling
+            e0 = eps(x, y)
+            e_e = harmonic(e0, eps(xs[i + 1], y))
+            e_w = harmonic(e0, eps(xs[i - 1], y))
+            e_n = harmonic(e0, eps(x, ys[j + 1]))
+            e_s = harmonic(e0, eps(x, ys[j - 1]))
+            A[k, idx(i + 1, j)] = e_e
+            A[k, idx(i - 1, j)] = e_w
+            A[k, idx(i, j + 1)] = e_n
+            A[k, idx(i, j - 1)] = e_s
+            A[k, k] = -(e_e + e_w + e_n + e_s)
 
     u = spla.spsolve(A.tocsr(), b)
     return u.reshape(Ny, Nx)
@@ -171,19 +149,8 @@ def plot(U, title):
 
 print(f'grid: {Nx} x {Ny} = {N} unknowns')
 
-# stage 1: constant epsilon, Dirichlet boundary only
-U1 = solve(use_neumann=False, use_var_eps=False)
-print(f'stage 1: T in [{U1.min():.2f}, {U1.max():.2f}] K')
-plot(U1, 'Stage 1: constant epsilon, Dirichlet only')
-
-# stage 2: insulated walls via Neumann conditions
-U2 = solve(use_neumann=True, use_var_eps=False)
-print(f'stage 2: T in [{U2.min():.2f}, {U2.max():.2f}] K')
-plot(U2, 'Stage 2: with Neumann boundary')
-
-# stage 3: variable epsilon (concrete wall) - final solution
-U3 = solve(use_neumann=True, use_var_eps=True)
-print(f'stage 3: T in [{U3.min():.2f}, {U3.max():.2f}] K')
-plot(U3, 'Stage 3: variable epsilon (final)')
+U = solve()
+print(f'stage 3: T in [{U.min():.2f}, {U.max():.2f}] K')
+plot(U, 'Stage 3: variable epsilon (final)')
 
 plt.show()

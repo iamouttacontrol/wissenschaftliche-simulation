@@ -2,11 +2,8 @@
 """
 Stationary temperature distribution in a room via finite differences.
 
+Stage 2: constant epsilon, with insulated (Neumann) walls.
 Projektaufgabe 1 - Wissenschaftliche Simulation (SoSe 2026)
-
-The temperature u(x, y) solves  -eps(x, y) * (u_xx + u_yy) = 0  on the
-room [0, Lx] x [0, Ly] with a heater (Dirichlet), an open door (Dirichlet)
-and insulated walls (Neumann). The concrete wall uses a smaller epsilon.
 """
 
 import numpy as np
@@ -28,12 +25,8 @@ ys = np.linspace(0.0, Ly, Ny)
 N = Nx * Ny
 
 # fixed (Dirichlet) temperatures in Kelvin
-T_heater = 323.15
+T_heater = 323.13
 T_outside = 283.15
-
-# material constant epsilon for air and the concrete wall
-eps_air = 2.00e-5
-eps_concrete = 8.75e-7
 
 
 def is_heater(x, y):
@@ -46,38 +39,17 @@ def is_door(x, y):
     return (abs(x - Lx) < 1e-9) and (0.2 - 1e-9 <= y <= 1.2 + 1e-9)
 
 
-def is_concrete(x, y):
-    """Return True inside the concrete wall [3, 3.2] x [1.5, 4]."""
-    return (3.0 - 1e-9 <= x <= 3.2 + 1e-9) and (y >= 1.5 - 1e-9)
-
-
-def eps(x, y):
-    """Material constant epsilon at point (x, y)."""
-    return eps_concrete if is_concrete(x, y) else eps_air
-
-
 def idx(i, j):
     """Map grid index (i, j) to a single unknown number k = j*Nx + i."""
     return j * Nx + i
 
 
-def harmonic(a, b):
-    """Harmonic mean of a and b (flux-conserving coupling at material jumps)."""
-    return 2.0 * a * b / (a + b)
-
-
-def solve(use_neumann=True, use_var_eps=True):
+def solve():
     """
     Assemble and solve the finite-difference system A u = b.
 
-    Parameters
-    ----------
-    use_neumann : bool
-        If True, insulated walls are modelled by Neumann conditions
-        (u_n = 0). Otherwise the outer boundary is fixed to T_outside.
-    use_var_eps : bool
-        If True, the concrete wall uses its own epsilon. Otherwise
-        epsilon is constant (air) everywhere.
+    Heater and door are Dirichlet, the remaining walls are insulated
+    (Neumann, u_n = 0) and modelled by ghost points. Epsilon is constant.
 
     Returns
     -------
@@ -102,11 +74,10 @@ def solve(use_neumann=True, use_var_eps=True):
                 b[k] = T_outside
                 continue
 
-            on_boundary = (i == 0 or i == Nx - 1 or j == 0 or j == Ny - 1)
-
             # Neumann boundary: insulated wall via ghost points, the
             # opposite inner neighbour is counted twice
-            if on_boundary and use_neumann:
+            on_boundary = (i == 0 or i == Nx - 1 or j == 0 or j == Ny - 1)
+            if on_boundary:
                 A[k, k] = -4.0
                 if i == 0:
                     A[k, idx(i + 1, j)] = 2.0
@@ -124,30 +95,12 @@ def solve(use_neumann=True, use_var_eps=True):
                     A[k, idx(i, j - 1)] = 1.0
                 continue
 
-            # stage 1 without Neumann: fix the remaining boundary to T_outside
-            if on_boundary and not use_neumann:
-                A[k, k] = 1.0
-                b[k] = T_outside
-                continue
-
             # interior points: 5-point Laplace stencil
-            if not use_var_eps:
-                A[k, k] = -4.0
-                A[k, idx(i + 1, j)] = 1.0
-                A[k, idx(i - 1, j)] = 1.0
-                A[k, idx(i, j + 1)] = 1.0
-                A[k, idx(i, j - 1)] = 1.0
-            else:
-                e0 = eps(x, y)
-                e_e = harmonic(e0, eps(xs[i + 1], y))
-                e_w = harmonic(e0, eps(xs[i - 1], y))
-                e_n = harmonic(e0, eps(x, ys[j + 1]))
-                e_s = harmonic(e0, eps(x, ys[j - 1]))
-                A[k, idx(i + 1, j)] = e_e
-                A[k, idx(i - 1, j)] = e_w
-                A[k, idx(i, j + 1)] = e_n
-                A[k, idx(i, j - 1)] = e_s
-                A[k, k] = -(e_e + e_w + e_n + e_s)
+            A[k, k] = -4.0
+            A[k, idx(i + 1, j)] = 1.0
+            A[k, idx(i - 1, j)] = 1.0
+            A[k, idx(i, j + 1)] = 1.0
+            A[k, idx(i, j - 1)] = 1.0
 
     u = spla.spsolve(A.tocsr(), b)
     return u.reshape(Ny, Nx)
@@ -160,8 +113,6 @@ def plot(U, title):
     plt.colorbar(cf, label='T [K]')
     plt.gca().add_patch(plt.Rectangle((0, 3), 0.5, 1.0, fill=False,
                                       edgecolor='cyan', lw=2))
-    plt.gca().add_patch(plt.Rectangle((3, 1.5), 0.2, 2.5, fill=False,
-                                      edgecolor='lime', lw=2))
     plt.plot([Lx, Lx], [0.2, 1.2], color='white', lw=3)
     plt.gca().set_aspect('equal')
     plt.xlabel('x [m]')
@@ -171,19 +122,8 @@ def plot(U, title):
 
 print(f'grid: {Nx} x {Ny} = {N} unknowns')
 
-# stage 1: constant epsilon, Dirichlet boundary only
-U1 = solve(use_neumann=False, use_var_eps=False)
-print(f'stage 1: T in [{U1.min():.2f}, {U1.max():.2f}] K')
-plot(U1, 'Stage 1: constant epsilon, Dirichlet only')
-
-# stage 2: insulated walls via Neumann conditions
-U2 = solve(use_neumann=True, use_var_eps=False)
-print(f'stage 2: T in [{U2.min():.2f}, {U2.max():.2f}] K')
-plot(U2, 'Stage 2: with Neumann boundary')
-
-# stage 3: variable epsilon (concrete wall) - final solution
-U3 = solve(use_neumann=True, use_var_eps=True)
-print(f'stage 3: T in [{U3.min():.2f}, {U3.max():.2f}] K')
-plot(U3, 'Stage 3: variable epsilon (final)')
+U = solve()
+print(f'stage 2: T in [{U.min():.2f}, {U.max():.2f}] K')
+plot(U, 'Stage 2: with Neumann boundary')
 
 plt.show()
