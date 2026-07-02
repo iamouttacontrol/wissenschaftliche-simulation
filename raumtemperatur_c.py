@@ -127,6 +127,7 @@ def solve():
             A[k, idx(i, j - 1)] = e_s
             A[k, k] = -(e_e + e_w + e_n + e_s)
 
+    #np.savetxt('matrix_A.csv', A.toarray(), delimiter=',', fmt='%g')
     u = spla.spsolve(A.tocsr(), b)
     return u.reshape(Ny, Nx)
 
@@ -134,12 +135,12 @@ def solve():
 def plot(U, title):
     """Plot the temperature field U as a filled contour map."""
     plt.figure(figsize=(9, 5))
-    cf = plt.contourf(xs, ys, U, levels=40, cmap='inferno')
+    cf = plt.contourf(xs, ys, U, levels=40, cmap='turbo')
     plt.colorbar(cf, label='T [K]')
     plt.gca().add_patch(plt.Rectangle((0, 3), 0.5, 1.0, fill=False,
-                                      edgecolor='cyan', lw=2))
+                                      edgecolor='white', lw=2))
     plt.gca().add_patch(plt.Rectangle((3, 1.5), 0.2, 2.5, fill=False,
-                                      edgecolor='lime', lw=2))
+                                      edgecolor='black', lw=2))
     plt.plot([Lx, Lx], [0.2, 1.2], color='white', lw=3)
     plt.gca().set_aspect('equal')
     plt.xlabel('x [m]')
